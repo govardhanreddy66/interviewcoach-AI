@@ -557,6 +557,13 @@ export default function QuestionsPage() {
 
       } catch (error) {
         console.error('Error fetching questions:', error);
+        const msg = (error.message || '').toLowerCase();
+        if (msg.includes('token') || msg.includes('authorization') || msg.includes('unauthorized')) {
+          localStorage.removeItem('ic_token');
+          localStorage.removeItem('ic_user');
+          window.location.href = '/login?expired=true';
+          return;
+        }
         setError(error.message);
       } finally {
         setLoading(false);
