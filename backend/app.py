@@ -1475,6 +1475,27 @@ def upload_resume():
     }})
 
 # ─────────────────────────────────────────────────────────────────────────────
+#  PAYMENT & INTERVIEW LIMIT RULES
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _get_user_interview_and_payment_counts(user_id):
+    interviews = query_all("SELECT id FROM interviews WHERE user_id=%s AND status IN ('completed', 'ENDED')", (user_id,))
+    payments = query_all("SELECT id FROM payments WHERE user_id=%s AND payment_status IN ('succeeded', 'success')", (user_id,))
+    return len(interviews), len(payments)
+
+def _check_interview_limit(user_id):
+    total_interviews, total_payments = _get_user_interview_and_payment_counts(user_id)
+    if total_interviews >= 2 + total_payments:
+        return jsonify({"success": False, "error": "Payment required to unlock additional interviews."}), 402
+    return None
+
+def _check_payment_required(user_id):
+    _, total_payments = _get_user_interview_and_payment_counts(user_id)
+    if total_payments == 0:
+        return jsonify({"success": False, "error": "Payment required to view performance metrics."}), 402
+    return None
+
+# ─────────────────────────────────────────────────────────────────────────────
 #  JOB DESCRIPTIONS  (implements the app API)
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -1507,6 +1528,11 @@ def get_job_descriptions():
 def create_interview():
     if request.method == 'OPTIONS':
         return jsonify({"message": "OK"}), 200
+    
+    limit_error = _check_interview_limit(request.user['id'])
+    if limit_error:
+        return limit_error
+
     data = request.get_json() or {}
     row = execute(
         "INSERT INTO interviews (user_id, resume_id, jd_id, question_set, retake_from, attempt_number) "
@@ -1773,6 +1799,11 @@ def classify_technical_role():
 def generate_questions():
     if request.method == 'OPTIONS':
         return jsonify({"message": "OK"}), 200
+        
+    limit_error = _check_interview_limit(request.user['id'])
+    if limit_error:
+        return limit_error
+        
     try:
         data = request.get_json() or {}
         resume_url = data.get('resume_url')
@@ -2265,6 +2296,11 @@ def support_bot():
 def analyze_performance_trends():
     if request.method == 'OPTIONS':
         return jsonify({"message": "OK"}), 200
+        
+    payment_error = _check_payment_required(request.user['id'])
+    if payment_error:
+        return payment_error
+        
     data = request.get_json() or {}
     try:
         if 'feedbacks' in data and isinstance(data['feedbacks'], list):
@@ -2285,6 +2321,10 @@ def analyze_performance_trends():
 @verify_auth_token
 def overall_performance():
     user_id = request.user['id']
+    payment_error = _check_payment_required(user_id)
+    if payment_error:
+        return payment_error
+        
     rows = query_all("SELECT * FROM overall_evaluation WHERE user_id=%s ORDER BY created_at DESC LIMIT 10",
                      (user_id,))
     return jsonify({"success": True, "data": [dict(r) for r in rows]})

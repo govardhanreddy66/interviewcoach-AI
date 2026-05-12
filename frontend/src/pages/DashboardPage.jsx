@@ -70,8 +70,7 @@ function DashboardPage() {
   const [blendResumePercentage, setBlendResumePercentage] = useState(50);
   const [questionValidationError, setQuestionValidationError] = useState('');
   // Add state for loading overall performance
-
-
+  const [hasPaid, setHasPaid] = useState(false);
   useEffect(() => {
     fetchDashboardData();
   }, []);
@@ -101,6 +100,24 @@ function DashboardPage() {
 
       const result = await parseApiJson(response, 'Failed to fetch dashboard data');
       setResumeJobPairings(result.data || []);
+
+      // Fetch payments to check if the user has made their 1st payment
+      try {
+        const paymentResponse = await fetch(`${backendOrigin}/functions/v1/payments`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        const paymentResult = await parseApiJson(paymentResponse, 'Failed to fetch payments');
+        if (paymentResult.success && paymentResult.data) {
+          const paid = paymentResult.data.some(p => p.payment_status === 'succeeded' || p.payment_status === 'success');
+          setHasPaid(paid);
+        }
+      } catch (err) {
+        console.error('Error fetching payments:', err);
+      }
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -544,6 +561,23 @@ function DashboardPage() {
     );
   }
 
+  const getTotalCompletedInterviews = () => {
+    let count = 0;
+    resumeJobPairings.forEach(pairing => {
+      pairing.questionSets?.forEach(qs => {
+        qs.interviews?.forEach(interview => {
+          if (interview.status === 'completed' || interview.status === 'ENDED') {
+            count++;
+          }
+        });
+      });
+    });
+    return count;
+  };
+
+  const completedInterviewsCount = getTotalCompletedInterviews();
+  const canViewPerformance = completedInterviewsCount >= 2 && hasPaid;
+
     return (
     <>
       <Navbar disableNavigation={isGeneratingQuestions} />
@@ -559,8 +593,23 @@ function DashboardPage() {
             </p>
           </div>
 
-          {/* Performance Graph - Only shows when user has 2+ completed interviews */}
-          {resumeJobPairings.length > 0 && (
+          {/* Performance Graph - Only shows when user has 2+ completed interviews and has paid */}
+          {resumeJobPairings.length > 0 && completedInterviewsCount >= 2 && !hasPaid && (
+            <div className="mb-6 sm:mb-8 bg-[var(--color-card)] border border-[var(--color-border)] rounded-xl p-6 text-center shadow-md">
+              <FiBarChart2 className="mx-auto mb-3 text-[var(--color-text-secondary)]" size={32} />
+              <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2">Performance Metrics Locked</h3>
+              <p className="text-sm text-[var(--color-text-secondary)] mb-4">
+                You have completed {completedInterviewsCount} free interviews. Please make your first payment to unlock and view your performance metrics.
+              </p>
+              <button
+                onClick={() => window.location.href = '/profile'}
+                className="bg-[var(--color-primary)] text-white px-6 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity"
+              >
+                Make Payment
+              </button>
+            </div>
+          )}
+          {resumeJobPairings.length > 0 && canViewPerformance && (
             <div className="mb-6 sm:mb-8">
               <PerformanceGraph resumeJobPairings={resumeJobPairings} />
             </div>
