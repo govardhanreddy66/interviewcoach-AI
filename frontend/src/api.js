@@ -43,21 +43,32 @@ export async function apiCall(endpoint, options = {}) {
     const response = await fetch(buildUrl(endpoint), config);
 
     // Auto-refresh token on 401
-    if (response.status === 401 && !options._retried) {
-      try {
-        const refreshRes = await fetch(buildUrl('/api/refresh-token'), {
-          method: 'POST',
-          headers: getHeaders(),
-        });
-        if (refreshRes.ok) {
-          const refreshData = await refreshRes.json();
-          if (refreshData.token) {
-            setAccessToken(refreshData.token);
-            return apiCall(endpoint, { ...options, _retried: true });
+    if (response.status === 401) {
+      if (!options._retried) {
+        try {
+          const refreshRes = await fetch(buildUrl('/api/refresh-token'), {
+            method: 'POST',
+            headers: getHeaders(),
+          });
+          if (refreshRes.ok) {
+            const refreshData = await refreshRes.json();
+            if (refreshData.token) {
+              setAccessToken(refreshData.token);
+              return apiCall(endpoint, { ...options, _retried: true });
+            }
           }
+        } catch (e) {
+          console.error('Token refresh failed:', e);
         }
-      } catch {}
-      // Refresh failed — let original 401 bubble up
+      }
+      
+      // If we reach here, either refresh failed or it was already a retry
+      // Clear auth and redirect to login
+      localStorage.removeItem('ic_token');
+      localStorage.removeItem('ic_user');
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login?expired=true';
+      }
     }
 
     if (response.status === 429) {

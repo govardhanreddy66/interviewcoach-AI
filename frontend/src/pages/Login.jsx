@@ -22,6 +22,16 @@ function Login() {
   const [errorMsg, setErrorMsg] = useState('');
   const [infoMsg, setInfoMsg] = useState('');
 
+  // Check for session expiry message
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('expired') === 'true') {
+      setInfoMsg('Your session has expired. Please log in again.');
+      // Clean up the URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   const normalizedIdentifier = identifier.toLowerCase().trim();
   const looksLikeEmail = normalizedIdentifier.includes('@');
   const identifierIsValid = looksLikeEmail ? isValidEmail(normalizedIdentifier) : isValidUsername(normalizedIdentifier);

@@ -17,6 +17,23 @@ function AuthenticatedShell() {
     30
   );
 
+  // Proactively verify session on navigation to ensure logout on invalid tokens
+  useEffect(() => {
+    const verifySession = async () => {
+      try {
+        // This will trigger the global fetch interceptor if the token is invalid
+        const { apiGet } = await import('../api');
+        await apiGet('/api/me');
+      } catch (err) {
+        // Interceptor handles redirect, so we don't need to do anything here
+      }
+    };
+    
+    if (!isOnInterviewPage) {
+      verifySession();
+    }
+  }, [location.pathname, isOnInterviewPage]);
+
   const handleIdleLogout = () => {
     logout();
   };

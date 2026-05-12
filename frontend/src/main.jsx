@@ -5,6 +5,10 @@ import { AuthProvider } from './contexts/AuthContext';
 import { OperationProvider } from './contexts/OperationContext';
 import App from './App';
 import './index.css';
+import { initAuthInterceptor } from './utils/authInterceptor';
+
+// Initialize global fetch interceptor to handle session timeouts/invalid tokens
+initAuthInterceptor();
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
