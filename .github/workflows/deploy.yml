@@ -65,7 +65,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: 1. Authorize and Prepare - Checkout Selected Branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.git_ref }}
           fetch-depth: 20
@@ -141,7 +141,7 @@ jobs:
     needs: authorize_and_prepare
     steps:
       - name: 2. Build and Audit - Checkout Selected Branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           ref: ${{ needs.authorize_and_prepare.outputs.selected_ref }}
 
@@ -289,7 +289,7 @@ jobs:
 
     steps:
       - name: 4. Deploy and Verify - Checkout Selected Branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           ref: ${{ needs.authorize_and_prepare.outputs.selected_ref }}
 
